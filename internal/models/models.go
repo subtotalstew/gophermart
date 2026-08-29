@@ -6,6 +6,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const (
+	OrderStatusNew        = "NEW"
+	OrderStatusProcessing = "PROCESSING"
+	OrderStatusInvalid    = "INVALID"
+	OrderStatusProcessed  = "PROCESSED"
+)
+
 type User struct {
 	ID           pgtype.UUID `json:"id"`
 	Login        string      `json:"login"`

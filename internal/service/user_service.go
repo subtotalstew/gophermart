@@ -16,15 +16,14 @@ var (
 )
 
 type UserService struct {
-	repo *repository.UserRepository
+	repo repository.UserRepositoryInterface
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
+func NewUserService(repo repository.UserRepositoryInterface) *UserService {
 	return &UserService{repo: repo}
 }
 
 func (s *UserService) Register(ctx context.Context, login, password string) (*models.User, error) {
-	// Проверка существования пользователя
 	exists, err := s.repo.UserExists(ctx, login)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check user existence: %w", err)
@@ -33,7 +32,6 @@ func (s *UserService) Register(ctx context.Context, login, password string) (*mo
 		return nil, ErrUserExists
 	}
 
-	// Хеширование пароля
 	hash, err := utils.HashPassword(password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)

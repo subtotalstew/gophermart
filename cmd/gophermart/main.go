@@ -36,19 +36,23 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(db)
+	orderRepo := repository.NewOrderRepository(db)
 
 	userService := service.NewUserService(userRepo)
+	orderService := service.NewOrderService(orderRepo, userRepo)
+
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
 
 	userHandler := handlers.NewUserHandler(userService, authMiddleware)
+	orderHandler := handlers.NewOrderHandler(orderService)
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/user/register", userHandler.Register)
 	mux.HandleFunc("POST /api/user/login", userHandler.Login)
 
-	mux.Handle("GET /api/user/orders", authMiddleware.RequireAuth(http.HandlerFunc(userHandler.GetOrders)))
-	mux.Handle("POST /api/user/orders", authMiddleware.RequireAuth(http.HandlerFunc(userHandler.UploadOrder)))
+	mux.Handle("GET /api/user/orders", authMiddleware.RequireAuth(http.HandlerFunc(orderHandler.GetOrders)))
+	mux.Handle("POST /api/user/orders", authMiddleware.RequireAuth(http.HandlerFunc(orderHandler.UploadOrder)))
 	mux.Handle("GET /api/user/balance", authMiddleware.RequireAuth(http.HandlerFunc(userHandler.GetBalance)))
 	mux.Handle("POST /api/user/balance/withdraw", authMiddleware.RequireAuth(http.HandlerFunc(userHandler.Withdraw)))
 	mux.Handle("GET /api/user/withdrawals", authMiddleware.RequireAuth(http.HandlerFunc(userHandler.GetWithdrawals)))

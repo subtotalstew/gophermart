@@ -60,3 +60,9 @@ func (r *UserRepository) UserExists(ctx context.Context, login string) (bool, er
 	}
 	return exists, nil
 }
+
+type UserRepositoryInterface interface {
+	Create(ctx context.Context, user *models.User) error
+	FindByLogin(ctx context.Context, login string) (*models.User, error)
+	UserExists(ctx context.Context, login string) (bool, error)
+}

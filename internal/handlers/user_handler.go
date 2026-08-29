@@ -14,7 +14,6 @@ type UserHandler struct {
 	authMW      *middleware.AuthMiddleware
 }
 
-// Исправленный конструктор - добавляем authMW
 func NewUserHandler(userService *service.UserService, authMW *middleware.AuthMiddleware) *UserHandler {
 	return &UserHandler{
 		userService: userService,
@@ -44,7 +43,6 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Генерация JWT токена
 	token, err := h.authMW.GenerateToken(user.ID.String())
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -77,7 +75,6 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Генерация JWT токена
 	token, err := h.authMW.GenerateToken(user.ID.String())
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -88,15 +85,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// Заглушки для остальных хендлеров
-func (h *UserHandler) UploadOrder(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented yet", http.StatusNotImplemented)
-}
-
-func (h *UserHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented yet", http.StatusNotImplemented)
-}
-
+// Заглушки для финансовых хендлеров
 func (h *UserHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Not implemented yet", http.StatusNotImplemented)
 }
