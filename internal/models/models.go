@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Константы статусов заказов
 const (
 	OrderStatusNew        = "NEW"
 	OrderStatusProcessing = "PROCESSING"

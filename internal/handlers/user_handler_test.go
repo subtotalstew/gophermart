@@ -105,13 +105,11 @@ func TestUserHandler_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Создаем новый мок для каждого теста
 			mockUserRepo := testutil.NewMockUserRepository()
 			userService := service.NewUserService(mockUserRepo)
 			authMiddleware := middleware.NewAuthMiddleware("test-secret")
 			userHandler := NewUserHandler(userService, authMiddleware)
 
-			// Настраиваем мок если нужно
 			if tt.setup != nil {
 				tt.setup(mockUserRepo)
 			}
@@ -141,7 +139,7 @@ func TestUserHandler_Register(t *testing.T) {
 }
 
 // ============================================
-// Тесты для регистрации с невалидным JSON
+// Тест: регистрация с невалидным JSON
 // ============================================
 
 func TestUserHandler_Register_InvalidJSON(t *testing.T) {
@@ -150,7 +148,6 @@ func TestUserHandler_Register_InvalidJSON(t *testing.T) {
 	authMiddleware := middleware.NewAuthMiddleware("test-secret")
 	userHandler := NewUserHandler(userService, authMiddleware)
 
-	// Некорректный JSON (незакрытая кавычка)
 	req := httptest.NewRequest("POST", "/api/user/register", bytes.NewBufferString(`{"login": "test", "password": "test123"`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -249,13 +246,11 @@ func TestUserHandler_Login(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Создаем новый мок для каждого теста
 			mockUserRepo := testutil.NewMockUserRepository()
 			userService := service.NewUserService(mockUserRepo)
 			authMiddleware := middleware.NewAuthMiddleware("test-secret")
 			userHandler := NewUserHandler(userService, authMiddleware)
 
-			// Настраиваем мок если нужно
 			if tt.setup != nil {
 				tt.setup(mockUserRepo)
 			}
@@ -285,7 +280,7 @@ func TestUserHandler_Login(t *testing.T) {
 }
 
 // ============================================
-// Тесты для логина с невалидным JSON
+// Тест: логин с невалидным JSON
 // ============================================
 
 func TestUserHandler_Login_InvalidJSON(t *testing.T) {
@@ -294,7 +289,6 @@ func TestUserHandler_Login_InvalidJSON(t *testing.T) {
 	authMiddleware := middleware.NewAuthMiddleware("test-secret")
 	userHandler := NewUserHandler(userService, authMiddleware)
 
-	// Некорректный JSON
 	req := httptest.NewRequest("POST", "/api/user/login", bytes.NewBufferString(`{"login": "test", "password": "test123"`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -315,7 +309,6 @@ func TestUserHandler_Register_AutoAuth(t *testing.T) {
 	authMiddleware := middleware.NewAuthMiddleware("test-secret")
 	userHandler := NewUserHandler(userService, authMiddleware)
 
-	// Регистрируем пользователя
 	registerReq := models.RegisterRequest{
 		Login:    "autouser",
 		Password: "test123",
@@ -331,13 +324,11 @@ func TestUserHandler_Register_AutoAuth(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Проверяем токен
 	token := w.Header().Get("Authorization")
 	assert.NotEmpty(t, token)
 	assert.Contains(t, token, "Bearer ")
 
-	// Проверяем, что токен валидный
-	tokenPart := token[7:] // Убираем "Bearer "
+	tokenPart := token[7:]
 	userID, err := authMiddleware.ValidateToken(tokenPart)
 	require.NoError(t, err)
 	assert.NotEmpty(t, userID)
@@ -353,14 +344,12 @@ func TestUserHandler_Register_ExistingLoginInMock(t *testing.T) {
 	authMiddleware := middleware.NewAuthMiddleware("test-secret")
 	userHandler := NewUserHandler(userService, authMiddleware)
 
-	// Создаем пользователя напрямую в моке (минуя сервис)
 	user := &models.User{
 		Login: "existing_user",
 	}
 	err := mockUserRepo.Create(context.Background(), user)
 	require.NoError(t, err)
 
-	// Пытаемся зарегистрироваться с тем же логином
 	req := models.RegisterRequest{
 		Login:    "existing_user",
 		Password: "test123",
@@ -411,7 +400,6 @@ func TestUserHandler_Register_MultipleUsers(t *testing.T) {
 		assert.Contains(t, token, "Bearer ", "Authorization header should contain 'Bearer ' for user: %s", login)
 	}
 
-	// Проверяем, что все пользователи созданы
 	for _, login := range users {
 		exists, err := mockUserRepo.UserExists(context.Background(), login)
 		require.NoError(t, err)
@@ -420,7 +408,7 @@ func TestUserHandler_Register_MultipleUsers(t *testing.T) {
 }
 
 // ============================================
-// Тест: регистрация с одинаковыми паролями для разных пользователей
+// Тест: регистрация с одинаковыми паролями
 // ============================================
 
 func TestUserHandler_Register_SamePassword(t *testing.T) {
@@ -430,7 +418,6 @@ func TestUserHandler_Register_SamePassword(t *testing.T) {
 	userHandler := NewUserHandler(userService, authMiddleware)
 
 	password := "samepassword123"
-
 	users := []string{"user_a", "user_b", "user_c"}
 
 	for _, login := range users {
@@ -450,14 +437,12 @@ func TestUserHandler_Register_SamePassword(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, "Registration should succeed for user: %s", login)
 	}
 
-	// Проверяем, что все пользователи созданы
 	for _, login := range users {
 		exists, err := mockUserRepo.UserExists(context.Background(), login)
 		require.NoError(t, err)
 		assert.True(t, exists, "User %s should exist", login)
 	}
 
-	// Проверяем, что пароли хешированы (не хранятся в открытом виде)
 	user, err := mockUserRepo.FindByLogin(context.Background(), users[0])
 	require.NoError(t, err)
 	assert.NotEmpty(t, user.PasswordHash)
@@ -465,55 +450,7 @@ func TestUserHandler_Register_SamePassword(t *testing.T) {
 }
 
 // ============================================
-// Тесты для финансовых эндпоинтов (заглушки)
-// ============================================
-
-func TestUserHandler_FinancialEndpoints_NotImplemented(t *testing.T) {
-	mockUserRepo := testutil.NewMockUserRepository()
-	userService := service.NewUserService(mockUserRepo)
-	authMiddleware := middleware.NewAuthMiddleware("test-secret")
-	userHandler := NewUserHandler(userService, authMiddleware)
-
-	tests := []struct {
-		name    string
-		method  string
-		path    string
-		handler func(w http.ResponseWriter, r *http.Request)
-	}{
-		{
-			name:    "GetBalance",
-			method:  "GET",
-			path:    "/api/user/balance",
-			handler: userHandler.GetBalance,
-		},
-		{
-			name:    "Withdraw",
-			method:  "POST",
-			path:    "/api/user/balance/withdraw",
-			handler: userHandler.Withdraw,
-		},
-		{
-			name:    "GetWithdrawals",
-			method:  "GET",
-			path:    "/api/user/withdrawals",
-			handler: userHandler.GetWithdrawals,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
-			w := httptest.NewRecorder()
-			tt.handler(w, req)
-
-			assert.Equal(t, http.StatusNotImplemented, w.Code)
-			assert.Contains(t, w.Body.String(), "Not implemented yet")
-		})
-	}
-}
-
-// ============================================
-// Тест: проверка, что токен содержит правильный user ID
+// Тест: проверка токена содержит правильный user ID
 // ============================================
 
 func TestUserHandler_Register_TokenContainsUserID(t *testing.T) {
@@ -539,17 +476,14 @@ func TestUserHandler_Register_TokenContainsUserID(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Получаем токен
 	token := w.Header().Get("Authorization")
 	assert.NotEmpty(t, token)
 
-	// Извлекаем user ID из токена
-	tokenPart := token[7:] // Убираем "Bearer "
+	tokenPart := token[7:]
 	userID, err := authMiddleware.ValidateToken(tokenPart)
 	require.NoError(t, err)
 	assert.NotEmpty(t, userID)
 
-	// Проверяем, что пользователь с таким ID существует
 	user, err := mockUserRepo.FindByLogin(context.Background(), login)
 	require.NoError(t, err)
 	assert.NotNil(t, user)

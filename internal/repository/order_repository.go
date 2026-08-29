@@ -208,14 +208,3 @@ func (r *OrderRepository) GetOrderOwner(ctx context.Context, number string) (*pg
 
 	return &userID, nil
 }
-
-type OrderRepositoryInterface interface {
-	Save(ctx context.Context, order *models.Order) error
-	FindByNumber(ctx context.Context, number string) (*models.Order, error)
-	FindByUserID(ctx context.Context, userID pgtype.UUID) ([]models.Order, error)
-	UpdateStatus(ctx context.Context, number string, status string) error
-	UpdateStatusAndAccrual(ctx context.Context, number string, status string, accrual *float64) error
-	GetOrdersByStatus(ctx context.Context, statuses []string) ([]models.Order, error)
-	OrderExists(ctx context.Context, number string) (bool, error)
-	GetOrderOwner(ctx context.Context, number string) (*pgtype.UUID, error)
-}
