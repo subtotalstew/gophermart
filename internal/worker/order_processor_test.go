@@ -407,6 +407,39 @@ func TestOrderProcessor_ProcessOrder_AlreadyProcessing(t *testing.T) {
 	assert.Equal(t, 500.0, balance.Current)
 }
 
+func TestOrderProcessor_ProcessOrder_ProcessedWithoutAccrual(t *testing.T) {
+	processor, mockOrderRepo, mockBalanceRepo, _, _, userID := setupOrderProcessorTest(t)
+
+	order := &models.Order{
+		Number: "12345678903",
+		UserID: userID,
+		Status: models.OrderStatusNew,
+	}
+	mockOrderRepo.AddOrder(order)
+
+	// Accrual System возвращает PROCESSED без начисления
+	mockAccrualClient := processor.accrualClient.(*testutil.MockAccrualClient)
+	mockAccrualClient.SetResponse(&accrual.OrderResponse{
+		Order:   "12345678903",
+		Status:  accrual.StatusProcessed,
+		Accrual: nil, // Нет начисления!
+	}, nil)
+
+	ctx := context.Background()
+	processor.processOrders(ctx)
+
+	// Заказ должен стать INVALID
+	updatedOrder, err := mockOrderRepo.FindByNumber(ctx, "12345678903")
+	require.NoError(t, err)
+	assert.Equal(t, models.OrderStatusInvalid, updatedOrder.Status)
+	assert.Nil(t, updatedOrder.Accrual)
+
+	// Баланс не должен измениться
+	balance, err := mockBalanceRepo.GetByUserID(ctx, userID)
+	require.NoError(t, err)
+	assert.Equal(t, 0.0, balance.Current)
+}
+
 // ============================================
 // Вспомогательные функции
 // ============================================

@@ -208,3 +208,49 @@ func (r *OrderRepository) GetOrderOwner(ctx context.Context, number string) (*pg
 
 	return &userID, nil
 }
+
+// SaveWithLock создает новый заказ с блокировкой для избежания гонки
+func (r *OrderRepository) SaveWithLock(ctx context.Context, order *models.Order) error {
+	// Используем INSERT с проверкой конфликта
+	// Если заказ уже существует, возвращаем ошибку
+	query := `
+        INSERT INTO orders (number, user_id, status, uploaded_at, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (number) DO NOTHING
+        RETURNING uploaded_at, updated_at
+    `
+
+	err := r.db.QueryRow(ctx, query,
+		order.Number,
+		order.UserID,
+		order.Status,
+	).Scan(&order.UploadedAt, &order.UpdatedAt)
+
+	if err == pgx.ErrNoRows {
+		// Заказ уже существует
+		return fmt.Errorf("order already exists")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to save order: %w", err)
+	}
+
+	return nil
+}
+
+// GetOrderOwnerWithLock получает владельца заказа с блокировкой
+func (r *OrderRepository) GetOrderOwnerWithLock(ctx context.Context, number string) (*pgtype.UUID, error) {
+	query := `
+        SELECT user_id FROM orders WHERE number = $1 FOR UPDATE
+    `
+
+	var userID pgtype.UUID
+	err := r.db.QueryRow(ctx, query, number).Scan(&userID)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order owner: %w", err)
+	}
+
+	return &userID, nil
+}

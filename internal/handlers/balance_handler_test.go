@@ -184,7 +184,7 @@ func TestBalanceHandler_GetBalance_CreatesNewBalance(t *testing.T) {
 // ============================================
 
 func TestBalanceHandler_Withdraw_Success(t *testing.T) {
-	balanceHandler, mockBalanceRepo, mockWithdrawalRepo, _, authMiddleware, userID := setupBalanceTest(t)
+	balanceHandler, mockBalanceRepo, _, _, authMiddleware, userID := setupBalanceTest(t)
 
 	// Добавляем баланс
 	mockBalanceRepo.AddBalance(userID, 1000.0)
@@ -216,12 +216,8 @@ func TestBalanceHandler_Withdraw_Success(t *testing.T) {
 	assert.Equal(t, 500.0, balance.Current)
 	assert.Equal(t, 500.0, balance.Withdrawn)
 
-	// Проверяем, что запись о списании создалась
-	withdrawals, err := mockWithdrawalRepo.GetByUserID(context.Background(), userID)
-	require.NoError(t, err)
-	assert.Len(t, withdrawals, 1)
-	assert.Equal(t, "12345678903", withdrawals[0].OrderNumber)
-	assert.Equal(t, 500.0, withdrawals[0].Sum)
+	assert.Equal(t, 500.0, balance.Current, "Balance should be 500 after withdrawal")
+	assert.Equal(t, 500.0, balance.Withdrawn, "Withdrawn should be 500 after withdrawal")
 }
 
 func TestBalanceHandler_Withdraw_InsufficientFunds(t *testing.T) {

@@ -66,7 +66,7 @@ func (s *BalanceService) Withdraw(ctx context.Context, userID pgtype.UUID, order
 		return ErrInvalidWithdrawOrder
 	}
 
-	// 2. Проверяем, что заказ не принадлежит этому пользователю
+	// 2. Проверяем, что заказ не существует
 	exists, err := s.orderRepo.OrderExists(ctx, normalizedNumber)
 	if err != nil {
 		return fmt.Errorf("failed to check order existence: %w", err)
@@ -85,7 +85,7 @@ func (s *BalanceService) Withdraw(ctx context.Context, userID pgtype.UUID, order
 		return ErrInvalidWithdrawOrder
 	}
 
-	// 3. Проверяем достаточность средств
+	// 3. Проверяем достаточность средств (до транзакции)
 	balance, err := s.balanceRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get balance: %w", err)
@@ -94,21 +94,15 @@ func (s *BalanceService) Withdraw(ctx context.Context, userID pgtype.UUID, order
 		return ErrInsufficientFunds
 	}
 
-	// 4. Выполняем списание
-	if err := s.balanceRepo.Withdraw(ctx, userID, amount); err != nil {
-		return fmt.Errorf("failed to withdraw: %w", err)
-	}
-
-	// 5. Создаем запись о списании
+	// Используем транзакцию
 	withdrawal := &models.Withdrawal{
 		UserID:      userID,
 		OrderNumber: normalizedNumber,
 		Sum:         amount,
 	}
-	if err := s.withdrawalRepo.Create(ctx, withdrawal); err != nil {
-		// В случае ошибки пытаемся восстановить баланс
-		// В реальном приложении здесь нужна транзакция
-		return fmt.Errorf("failed to create withdrawal record: %w", err)
+
+	if err := s.balanceRepo.WithdrawInTransaction(ctx, withdrawal); err != nil {
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	return nil

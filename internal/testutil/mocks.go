@@ -289,6 +289,29 @@ func (m *MockOrderRepository) AddOrder(order *models.Order) {
 	m.userOrders[userID] = append(m.userOrders[userID], order.Number)
 }
 
+func (m *MockOrderRepository) SaveWithLock(ctx context.Context, order *models.Order) error {
+	if m.lastError != nil {
+		return m.lastError
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Проверяем, существует ли уже заказ
+	if _, exists := m.orders[order.Number]; exists {
+		return errors.New("order already exists")
+	}
+
+	order.UploadedAt = time.Now()
+	order.UpdatedAt = time.Now()
+	m.orders[order.Number] = order
+
+	userID := order.UserID.String()
+	m.userOrders[userID] = append(m.userOrders[userID], order.Number)
+
+	return nil
+}
+
 // ============================================
 // MockBalanceRepository - мок для баланса
 // ============================================
@@ -374,6 +397,38 @@ func (m *MockBalanceRepository) AddAccrual(ctx context.Context, userID pgtype.UU
 		m.balances[userID.String()] = balance
 	}
 	balance.Current += amount
+	return nil
+}
+func (m *MockBalanceRepository) WithdrawInTransaction(ctx context.Context, withdrawal *models.Withdrawal) error {
+	if m.err != nil {
+		return m.err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Проверяем существование баланса
+	balance, exists := m.balances[withdrawal.UserID.String()]
+	if !exists {
+		return fmt.Errorf("balance not found")
+	}
+
+	// Проверяем достаточность средств
+	if balance.Current < withdrawal.Sum {
+		return fmt.Errorf("insufficient funds")
+	}
+
+	// Списываем средства
+	balance.Current -= withdrawal.Sum
+	balance.Withdrawn += withdrawal.Sum
+
+	// Создаем запись о списании
+	// В моке просто сохраняем в отдельную структуру
+	// Для простоты используем существующее поле Withdrawal.ID как индикатор
+	withdrawal.ID = pgtype.UUID{}
+	withdrawal.ID.Scan(fmt.Sprintf("%d", len(m.balances)))
+	withdrawal.ProcessedAt = time.Now()
+
 	return nil
 }
 

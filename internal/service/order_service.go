@@ -42,38 +42,8 @@ func (s *OrderService) UploadOrder(ctx context.Context, userID pgtype.UUID, numb
 		return nil, ErrInvalidOrderNumber
 	}
 
-	// 2. Проверяем, существует ли заказ в системе
-	exists, err := s.orderRepo.OrderExists(ctx, normalizedNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check order existence: %w", err)
-	}
-
-	if exists {
-		// Заказ существует, проверяем владельца
-		ownerID, err := s.orderRepo.GetOrderOwner(ctx, normalizedNumber)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get order owner: %w", err)
-		}
-
-		if ownerID == nil {
-			return nil, fmt.Errorf("order exists but owner not found")
-		}
-
-		// Сравниваем владельца с текущим пользователем
-		if ownerID.Bytes != userID.Bytes {
-			return nil, ErrOrderAlreadyUploadedByOther
-		}
-
-		// Заказ принадлежит этому пользователю
-		order, err := s.orderRepo.FindByNumber(ctx, normalizedNumber)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find order: %w", err)
-		}
-
-		return order, ErrOrderAlreadyUploadedByUser
-	}
-
-	// 3. Создаем новый заказ
+	// ИСПРАВЛЕНО: Используем блокировку для проверки существования
+	// Сначала пробуем создать заказ
 	order := &models.Order{
 		Number:  normalizedNumber,
 		UserID:  userID,
@@ -81,7 +51,32 @@ func (s *OrderService) UploadOrder(ctx context.Context, userID pgtype.UUID, numb
 		Accrual: nil,
 	}
 
-	if err := s.orderRepo.Save(ctx, order); err != nil {
+	err = s.orderRepo.SaveWithLock(ctx, order)
+	if err != nil {
+		// Если заказ уже существует, проверяем владельца
+		if err.Error() == "order already exists" {
+			ownerID, err := s.orderRepo.GetOrderOwner(ctx, normalizedNumber)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get order owner: %w", err)
+			}
+
+			if ownerID == nil {
+				return nil, fmt.Errorf("order exists but owner not found")
+			}
+
+			// Сравниваем владельца с текущим пользователем
+			if ownerID.Bytes != userID.Bytes {
+				return nil, ErrOrderAlreadyUploadedByOther
+			}
+
+			// Заказ принадлежит этому пользователю
+			existingOrder, err := s.orderRepo.FindByNumber(ctx, normalizedNumber)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find order: %w", err)
+			}
+
+			return existingOrder, ErrOrderAlreadyUploadedByUser
+		}
 		return nil, fmt.Errorf("failed to save order: %w", err)
 	}
 

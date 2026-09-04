@@ -24,6 +24,7 @@ type OrderRepositoryInterface interface {
 	GetOrdersByStatus(ctx context.Context, statuses []string) ([]models.Order, error)
 	OrderExists(ctx context.Context, number string) (bool, error)
 	GetOrderOwner(ctx context.Context, number string) (*pgtype.UUID, error)
+	SaveWithLock(ctx context.Context, order *models.Order) error
 }
 
 // BalanceRepositoryInterface определяет методы для работы с балансом
@@ -32,6 +33,7 @@ type BalanceRepositoryInterface interface {
 	Create(ctx context.Context, userID pgtype.UUID) (*models.Balance, error)
 	AddAccrual(ctx context.Context, userID pgtype.UUID, amount float64) error
 	Withdraw(ctx context.Context, userID pgtype.UUID, amount float64) error
+	WithdrawInTransaction(ctx context.Context, withdrawal *models.Withdrawal) error // НОВЫЙ МЕТОД
 	Update(ctx context.Context, balance *models.Balance) error
 }
 

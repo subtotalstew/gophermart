@@ -20,6 +20,57 @@ func NewBalanceRepository(db *pgxpool.Pool) *BalanceRepository {
 	return &BalanceRepository{db: db}
 }
 
+// Транзакционное списание
+func (r *BalanceRepository) WithdrawInTransaction(ctx context.Context, withdrawal *models.Withdrawal) error {
+	// Начинаем транзакцию
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Проверяем и обновляем баланс
+	updateQuery := `
+        UPDATE balances
+        SET current = current - $1,
+            withdrawn = withdrawn + $1
+        WHERE user_id = $2 AND current >= $1
+        RETURNING current, withdrawn
+    `
+
+	var current, withdrawn float64
+	err = tx.QueryRow(ctx, updateQuery, withdrawal.Sum, withdrawal.UserID).Scan(&current, &withdrawn)
+	if err == pgx.ErrNoRows {
+		return fmt.Errorf("insufficient funds or user not found")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to update balance: %w", err)
+	}
+
+	// 2. Создаем запись о списании
+	insertQuery := `
+        INSERT INTO withdrawals (user_id, order_number, sum, processed_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+        RETURNING id, processed_at
+    `
+
+	err = tx.QueryRow(ctx, insertQuery,
+		withdrawal.UserID,
+		withdrawal.OrderNumber,
+		withdrawal.Sum,
+	).Scan(&withdrawal.ID, &withdrawal.ProcessedAt)
+	if err != nil {
+		return fmt.Errorf("failed to create withdrawal record: %w", err)
+	}
+
+	// Фиксируем транзакцию
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 // GetByUserID возвращает баланс пользователя
 func (r *BalanceRepository) GetByUserID(ctx context.Context, userID pgtype.UUID) (*models.Balance, error) {
 	query := `
@@ -98,7 +149,7 @@ func (r *BalanceRepository) AddAccrual(ctx context.Context, userID pgtype.UUID, 
 	return nil
 }
 
-// Withdraw списывает средства с баланса пользователя
+// Withdraw - старый метод, оставляем для совместимости, но используем новый
 func (r *BalanceRepository) Withdraw(ctx context.Context, userID pgtype.UUID, amount float64) error {
 	query := `
         UPDATE balances
