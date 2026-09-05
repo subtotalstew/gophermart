@@ -54,10 +54,10 @@ func (s *OrderService) UploadOrder(ctx context.Context, userID pgtype.UUID, numb
 	err = s.orderRepo.SaveWithLock(ctx, order)
 	if err != nil {
 		// Если заказ уже существует, проверяем владельца
-		if err.Error() == "order already exists" {
-			ownerID, err := s.orderRepo.GetOrderOwner(ctx, normalizedNumber)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get order owner: %w", err)
+		if errors.Is(err, repository.ErrOrderExists) {
+			ownerID, ownerErr := s.orderRepo.GetOrderOwner(ctx, normalizedNumber)
+			if ownerErr != nil {
+				return nil, fmt.Errorf("failed to get order owner: %w", ownerErr)
 			}
 
 			if ownerID == nil {
@@ -70,9 +70,9 @@ func (s *OrderService) UploadOrder(ctx context.Context, userID pgtype.UUID, numb
 			}
 
 			// Заказ принадлежит этому пользователю
-			existingOrder, err := s.orderRepo.FindByNumber(ctx, normalizedNumber)
-			if err != nil {
-				return nil, fmt.Errorf("failed to find order: %w", err)
+			existingOrder, findErr := s.orderRepo.FindByNumber(ctx, normalizedNumber)
+			if findErr != nil {
+				return nil, fmt.Errorf("failed to find order: %w", findErr)
 			}
 
 			return existingOrder, ErrOrderAlreadyUploadedByUser
