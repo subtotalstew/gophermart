@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -47,26 +48,22 @@ func (h *OrderHandler) UploadOrder(w http.ResponseWriter, r *http.Request) {
 
 	// Загружаем заказ
 	order, err := h.orderService.UploadOrder(r.Context(), userID, orderNumber)
-	if err != nil {
-		switch err {
-		case service.ErrEmptyOrderNumber, service.ErrInvalidOrderNumber:
-			http.Error(w, "Invalid order number format", http.StatusUnprocessableEntity)
-			return
-		case service.ErrOrderAlreadyUploadedByUser:
-			// Заказ уже загружен этим пользователем
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(order)
-			return
-		case service.ErrOrderAlreadyUploadedByOther:
-			http.Error(w, "Order already uploaded by another user", http.StatusConflict)
-			return
-		default:
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
+	switch {
+	case errors.Is(err, service.ErrEmptyOrderNumber), errors.Is(err, service.ErrInvalidOrderNumber):
+		http.Error(w, "Invalid order number format", http.StatusUnprocessableEntity)
+		return
+	case errors.Is(err, service.ErrOrderAlreadyUploadedByUser):
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(order)
+		return
+	case errors.Is(err, service.ErrOrderAlreadyUploadedByOther):
+		http.Error(w, "Order already uploaded by another user", http.StatusConflict)
+		return
+	case err != nil:
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 
-	// Новый заказ принят в обработку
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(order)
 }

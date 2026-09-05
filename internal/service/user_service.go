@@ -24,14 +24,6 @@ func NewUserService(repo repository.UserRepositoryInterface) *UserService {
 }
 
 func (s *UserService) Register(ctx context.Context, login, password string) (*models.User, error) {
-	exists, err := s.repo.UserExists(ctx, login)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check user existence: %w", err)
-	}
-	if exists {
-		return nil, ErrUserExists
-	}
-
 	hash, err := utils.HashPassword(password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
@@ -43,6 +35,9 @@ func (s *UserService) Register(ctx context.Context, login, password string) (*mo
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
+		if errors.Is(err, repository.ErrUserExists) {
+			return nil, ErrUserExists
+		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 

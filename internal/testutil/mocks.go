@@ -51,7 +51,7 @@ func (m *MockUserRepository) Create(ctx context.Context, user *models.User) erro
 	defer m.mu.Unlock()
 
 	if _, exists := m.users[user.Login]; exists {
-		return errors.New("user already exists")
+		return repository.ErrUserExists // было: errors.New("user already exists")
 	}
 
 	var emptyUUID pgtype.UUID
@@ -299,7 +299,7 @@ func (m *MockOrderRepository) SaveWithLock(ctx context.Context, order *models.Or
 
 	// Проверяем, существует ли уже заказ
 	if _, exists := m.orders[order.Number]; exists {
-		return errors.New("order already exists")
+		return repository.ErrOrderExists // было: errors.New("order already exists")
 	}
 
 	order.UploadedAt = time.Now()

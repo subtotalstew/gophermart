@@ -19,25 +19,25 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	query := `
-        INSERT INTO users (login, password_hash)
-        VALUES ($1, $2)
-        RETURNING id, created_at
-    `
+		INSERT INTO users (login, password_hash)
+		VALUES ($1, $2)
+		RETURNING id, created_at
+	`
 	err := r.db.QueryRow(ctx, query, user.Login, user.PasswordHash).Scan(
 		&user.ID, &user.CreatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
+		return fmt.Errorf("failed to create user: %w", mapPgError(err, ErrUserExists))
 	}
 	return nil
 }
 
 func (r *UserRepository) FindByLogin(ctx context.Context, login string) (*models.User, error) {
 	query := `
-        SELECT id, login, password_hash, created_at
+		SELECT id, login, password_hash, created_at
         FROM users
         WHERE login = $1
-    `
+	`
 	var user models.User
 	err := r.db.QueryRow(ctx, query, login).Scan(
 		&user.ID, &user.Login, &user.PasswordHash, &user.CreatedAt,

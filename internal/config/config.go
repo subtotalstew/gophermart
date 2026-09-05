@@ -14,9 +14,7 @@ type Config struct {
 }
 
 func Load() *Config {
-	cfg := &Config{
-		JWTSecret: "your-secret-key-change-in-production", // TODO: заменить на env
-	}
+	cfg := &Config{}
 
 	flag.StringVar(&cfg.RunAddress, "a", ":8080", "address and port to run server")
 	flag.StringVar(&cfg.DatabaseURI, "d", "", "database connection URI")
@@ -38,6 +36,11 @@ func Load() *Config {
 
 	if cfg.DatabaseURI == "" {
 		cfg.DatabaseURI = "postgres://postgres:postgres@localhost:5432/gophermart?sslmode=disable"
+	}
+
+	if cfg.JWTSecret == "" {
+		fmt.Printf("JWT_SECRET is required (env JWT_SECRET or set explicitly)")
+		os.Exit(1)
 	}
 
 	fmt.Printf("Config loaded: RUN_ADDRESS=%s, DATABASE_URI=%s, ACCRUAL_SYSTEM_ADDRESS=%s\n",

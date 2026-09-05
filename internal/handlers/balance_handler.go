@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/subtotalstew/gophermart/internal/middleware"
@@ -80,18 +81,16 @@ func (h *BalanceHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	// Выполняем списание
 	err := h.balanceService.Withdraw(r.Context(), userID, req.Order, req.Sum)
-	if err != nil {
-		switch err {
-		case service.ErrInsufficientFunds:
-			http.Error(w, "Insufficient funds", http.StatusPaymentRequired)
-			return
-		case service.ErrInvalidWithdrawOrder:
-			http.Error(w, "Invalid order number", http.StatusUnprocessableEntity)
-			return
-		default:
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
+	switch {
+	case errors.Is(err, service.ErrInsufficientFunds):
+		http.Error(w, "Insufficient funds", http.StatusPaymentRequired)
+		return
+	case errors.Is(err, service.ErrInvalidWithdrawOrder):
+		http.Error(w, "Invalid order number", http.StatusUnprocessableEntity)
+		return
+	case err != nil:
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)

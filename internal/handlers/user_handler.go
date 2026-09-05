@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/subtotalstew/gophermart/internal/middleware"
@@ -34,11 +35,11 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.userService.Register(r.Context(), req.Login, req.Password)
-	if err == service.ErrUserExists {
+	switch {
+	case errors.Is(err, service.ErrUserExists):
 		http.Error(w, "Login already taken", http.StatusConflict)
 		return
-	}
-	if err != nil {
+	case err != nil:
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -66,11 +67,11 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.userService.Login(r.Context(), req.Login, req.Password)
-	if err == service.ErrInvalidLogin {
+	switch {
+	case errors.Is(err, service.ErrInvalidLogin):
 		http.Error(w, "Invalid login or password", http.StatusUnauthorized)
 		return
-	}
-	if err != nil {
+	case err != nil:
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
