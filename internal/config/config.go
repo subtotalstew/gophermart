@@ -39,8 +39,8 @@ func Load() *Config {
 	}
 
 	if cfg.JWTSecret == "" {
-		fmt.Printf("JWT_SECRET is required (env JWT_SECRET or set explicitly)")
-		os.Exit(1)
+		fmt.Println("JWT_SECRET not set, using insecure default — DO NOT use in production")
+		cfg.JWTSecret = "insecure-default-secret-change-me"
 	}
 
 	fmt.Printf("Config loaded: RUN_ADDRESS=%s, DATABASE_URI=%s, ACCRUAL_SYSTEM_ADDRESS=%s\n",
